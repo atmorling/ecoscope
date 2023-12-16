@@ -107,6 +107,79 @@ class EcoMap(EcoMapMixin, Map):
 
         return super().add_legend(*args, **kwargs)
 
+    def add_scale_bar(self, position="bottomleft", scale=1.0):
+        """
+        Parameters
+        ----------
+        position : str
+            Possible values are 'topleft', 'topright', 'bottomleft' or 'bottomright'.
+        """
+
+        
+
+        self.add_child(
+            ScaleElement(
+                f"""\
+            <svg xmlns="http://www.w3.org/2000/svg"
+      id="test"
+      viewBox="-1 -1 350 45">
+
+    <rect
+        id="border"
+        style="stroke:#000000;fill:#FFFFFF;"
+        stroke-width=2
+        height="40%"
+        width="90%"        
+    />     
+      
+    <rect
+        id="first_block"
+        style="fill:#000000"
+        height="40%"
+        width="45%"
+    />          
+    
+    <text
+        id="zero"
+        font-size=20
+        x=0%
+        y=95%
+      >
+      0
+    </text>
+
+    <text
+        id="half_scale"
+        font-size=20
+        x=40%
+        y=95%
+      >
+      15
+    </text>
+
+    <text
+        id="scale"
+        font-size=20
+        x=85%
+        y=95%
+      >
+      30
+    </text>
+
+    <text
+        id="unit"
+        font-size=20
+        x=92%
+        y=40%
+      >
+      km
+    </text>
+
+</svg>""",  # noqa
+                position=position,
+            )
+        )
+
     def add_north_arrow(self, position="topright", scale=1.0):
         """
         Parameters
@@ -458,6 +531,89 @@ class ControlElement(MacroElement):
         self.html = html
         self.options = folium.utilities.parse_options(
             position=position,
+        )
+
+class ScaleElement(MacroElement):
+    """
+    Class to wrap arbitrary HTML as Leaflet Control.
+
+    Parameters
+    ----------
+    html : str
+        HTML to render an element from.
+    position : str
+        Possible values are 'topleft', 'topright', 'bottomleft' or 'bottomright'.
+
+    """
+
+    _template = Template(
+        """
+        {% macro script(this, kwargs) %}
+
+        var {{ this.get_name() }} = L.Control.Scale.extend({
+            onAdd: function(map) {
+
+                var template = document.createElement('template');
+                var container = document.createElement('div');
+                container.classList.add("leaflet-control-scale");
+                container.innerHTML = `{{ this.html }}`.trim();
+                template.innerHTML = `{{ this.html }}`.trim();
+
+                console.log("555");                
+
+                this._mScale = container.firstChild;
+
+                map.on(options.updateWhenIdle ? 'moveend' : 'move', this._update, this);
+                map.whenReady(this._update, this);
+                
+                return container;
+            },
+
+            _updateMetric(maxMeters) {
+                const meters = this._getRoundNum(maxMeters),
+                    label = meters < 1000 ? `${meters} m` : `${meters / 1000} km`;
+
+                console.log("Meters: " + meters);
+                console.log("maxMeters: " + maxMeters);
+                console.log("ratio: " + (meters / maxMeters));
+
+                this._updateScale(this._mScale, meters, meters / maxMeters);
+            },
+
+            _updateScale(scale, meters, ratio) {
+                scale.style.width = `${Math.round(this.options.maxWidth * ratio * 1.111)}px`;
+                
+                console.log("obj");
+                console.log(scale);
+
+                unit = meters < 1000 ? `m` : `km`;       
+                text = meters < 1000 ? meters : meters / 1000;                 
+                half_text = text / 2;
+                
+                console.log(text);
+                
+                scale.getElementById("scale").textContent = text;
+                scale.getElementById("half_scale").textContent = half_text;
+                scale.getElementById("unit").textContent = unit;
+
+            }
+            
+        });
+        (new {{ this.get_name() }}({{ this.options|tojson }})).addTo({{this._parent.get_name()}});
+
+        {% endmacro %}
+    """
+    )
+
+    def __init__(self, html, position="bottomright"):
+        super().__init__()
+        self.html = html
+        self.options = folium.utilities.parse_options(
+            position=position,
+            maxWidth=300,
+            metric=True,
+            imperial=False,
+            updateWhenIdle=False
         )
 
 
