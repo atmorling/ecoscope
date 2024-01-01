@@ -115,10 +115,23 @@ class EcoMap(EcoMapMixin, Map):
             Possible values are 'topleft', 'topright', 'bottomleft' or 'bottomright'.
         """
 
-        bar_one = """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><rect id="border" style="stroke:#000000;fill:#FFFFFF;" height="40%" width="85%"/><rect id="first_block" style="fill:#000000" height="40%" width="42.5%"/><text id="zero" font-size="20" x="0%" y="95%">0</text><text id="half_scale" font-size="20" text-anchor="middle" x="42.5%" y="95%">15</text><text id="scale" font-size="20" text-anchor="end" x="85%" y="95%">30</text><text id="unit" font-size="20" x="86%" y="40%">km</text></svg>"""  # noqa
-        bar_two = """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><rect id="border" style="stroke:#000000;fill:#FFFFFF;" height="50%" width="85%" y="50%"/><text id="zero" font-size="20" x="0%" y="95%" visibility="hidden">0</text><text id="half_scale" font-size="20" text-anchor="middle" x="42.5%" y="95%" visibility="hidden">15</text><text id="scale" font-size="20" text-anchor="middle" x="42.5%" y="40%">30</text><text id="unit" font-size="20" x="86%" y="95%">km</text></svg>"""  # noqa
+        bar_one = """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><rect id="border" style="stroke:#000000;fill:#FFFFFF;" height="40%" width="75%" x="5%"/><rect id="first_block" style="fill:#000000" height="40%" width="37.5%" x="5%"/><text id="zero" text-anchor="middle" font-size="20" x="5%" y="95%">0</text><text id="half_scale" font-size=20 text-anchor="middle" x="42.5%" y="95%">15</text><text id="scale" font-size=20 text-anchor="middle" x="80%" y="95%">30</text><text id="unit" font-size=20 x="82%" y="40%">km</text></svg>"""  # noqa
+        bar_two = """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><rect id="border" style="stroke:#000000;fill:#FFFFFF;" height="50%" width="75%" x="5%" y="50%"/><text id="zero" font-size="20" x="0%" y="95%" visibility="hidden">0</text><text id="half_scale" font-size="20" text-anchor="middle" x="42.5%" y="95%" visibility="hidden">15</text><text id="scale" font-size="20" text-anchor="middle" x="42.5%" y="40%">30</text><text id="unit" font-size="20" x="82%" y="95%">km</text></svg>"""  # noqa
+        bar_three = """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><svg y="50%" x="5%" width="75%" height="50%" viewBox="-0.4 0 101 101" preserveAspectRatio="none"><path d="M 0 50 L 0 99 h 50 V 50 V 99 H 100 V 50" vector-effect="non-scaling-stroke" fill="None" stroke-width="2"  stroke="#000000"/></svg><text id="zero" font-size="20" text-anchor="middle" x="5%" y="55%">0</text><text id="half_scale" font-size="20" text-anchor="middle" y="55%" x="42.5%">15</text><text id="scale" font-size="20" text-anchor="middle" y="55%" x="80%">1500</text><text id="unit" font-size="20" x="85%" y="99%">km</text></svg>"""  # noqa
+        bar_four = """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><rect id="border" style="stroke:#000000;fill:#FFFFFF;" height="40%" width="75%" x="5%"/><rect id="first_block" style="fill:#000000" height="20%" width="37.5%" x="5%"/><rect id="second_block" style="fill:#000000" height="20%" width="37.5%" x="42.5%" y="20%"/><text id="zero" text-anchor="middle" font-size="20" x="5%" y="95%">0</text><text id="half_scale" font-size="20" text-anchor="middle" x="42.5%" y="95%">15</text><text id="scale" font-size="20" text-anchor="middle" x="80%" y="95%">30</text><text id="unit" font-size="20" x="82%" y="40%">km</text></svg>"""  # noqa
+        bar_five = """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><svg y="50%" x="5%" width="75%" height="50%" viewBox="-0.4 0 101 101" preserveAspectRatio="none"> <path d="M 0 50 L 0 99 H 100 V 50" vector-effect="non-scaling-stroke" fill="None" stroke-width="2" stroke="#000000"/></svg><text id="zero" font-size="20" text-anchor="middle" x="5%" y="55%">0</text><text id="half_scale" font-size="20" text-anchor="middle" y="55%" x="42.5%" visibility="hidden">15</text><text id="scale" font-size="20" text-anchor="middle" y="55%" x="80%">1500</text><text id="unit" font-size="20" x="85%" y="99%">km</text></svg>"""  # noqa
 
-        svg = bar_one if style == 1 else bar_two
+        svg = (
+            bar_two
+            if style == 2
+            else bar_three
+            if style == 3
+            else bar_four
+            if style == 4
+            else bar_five
+            if style == 5
+            else bar_one
+        )
 
         self.add_child(ScaleElement(svg, position=position, imperial=imperial, metric=False if imperial else True))
 
@@ -536,7 +549,7 @@ class ScaleElement(MacroElement):
             },
 
             _updateScale(scale, value, unit, ratio) {
-                scale.style.width = `${Math.round(this.options.maxWidth * ratio * (20/17))}px`;
+                scale.style.width = `${Math.round(this.options.maxWidth * ratio * (4/3))}px`;
 
                 scale.getElementById("scale").textContent = value;
                 scale.getElementById("half_scale").textContent = value / 2;
