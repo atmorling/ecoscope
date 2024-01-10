@@ -107,33 +107,31 @@ class EcoMap(EcoMapMixin, Map):
 
         return super().add_legend(*args, **kwargs)
 
-    def add_scale_bar(self, style=1, position="bottomleft", imperial=False):
+    def add_scale_bar(self, style="single", position="bottomleft", imperial=False, force=False):
         """
         Parameters
         ----------
-        position : str
+        style : str, optional
+            Possible values are 'single', 'double', 'empty' or 'comb'. Default is 'single'.
+        position : str, optional
             Possible values are 'topleft', 'topright', 'bottomleft' or 'bottomright'.
+        imperial : bool, optional
+            If True, the scale bar uses miles and feet. Default is False.
+        force : bool, optional
+            If True, adds index=0 to the add_child() call, forcing the scale bar 'behind' Folium's default controls
         """
 
-        bar_one = """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><rect id="border" style="stroke:#000000;fill:#FFFFFF;" height="40%" width="75%" x="5%"/><rect id="first_block" style="fill:#000000" height="40%" width="37.5%" x="5%"/><text id="zero" text-anchor="middle" font-size="20" x="5%" y="95%">0</text><text id="half_scale" font-size=20 text-anchor="middle" x="42.5%" y="95%">15</text><text id="scale" font-size=20 text-anchor="middle" x="80%" y="95%">30</text><text id="unit" font-size=20 x="82%" y="40%">km</text></svg>"""  # noqa
-        bar_two = """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><rect id="border" style="stroke:#000000;fill:#FFFFFF;" height="50%" width="75%" x="5%" y="50%"/><text id="zero" font-size="20" x="0%" y="95%" visibility="hidden">0</text><text id="half_scale" font-size="20" text-anchor="middle" x="42.5%" y="95%" visibility="hidden">15</text><text id="scale" font-size="20" text-anchor="middle" x="42.5%" y="40%">30</text><text id="unit" font-size="20" x="82%" y="95%">km</text></svg>"""  # noqa
-        bar_three = """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><svg y="50%" x="5%" width="75%" height="50%" viewBox="-0.4 0 101 101" preserveAspectRatio="none"><path d="M 0 50 L 0 99 h 50 V 50 V 99 H 100 V 50" vector-effect="non-scaling-stroke" fill="None" stroke-width="2"  stroke="#000000"/></svg><text id="zero" font-size="20" text-anchor="middle" x="5%" y="55%">0</text><text id="half_scale" font-size="20" text-anchor="middle" y="55%" x="42.5%">15</text><text id="scale" font-size="20" text-anchor="middle" y="55%" x="80%">1500</text><text id="unit" font-size="20" x="85%" y="99%">km</text></svg>"""  # noqa
-        bar_four = """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><rect id="border" style="stroke:#000000;fill:#FFFFFF;" height="40%" width="75%" x="5%"/><rect id="first_block" style="fill:#000000" height="20%" width="37.5%" x="5%"/><rect id="second_block" style="fill:#000000" height="20%" width="37.5%" x="42.5%" y="20%"/><text id="zero" text-anchor="middle" font-size="20" x="5%" y="95%">0</text><text id="half_scale" font-size="20" text-anchor="middle" x="42.5%" y="95%">15</text><text id="scale" font-size="20" text-anchor="middle" x="80%" y="95%">30</text><text id="unit" font-size="20" x="82%" y="40%">km</text></svg>"""  # noqa
-        bar_five = """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><svg y="50%" x="5%" width="75%" height="50%" viewBox="-0.4 0 101 101" preserveAspectRatio="none"> <path d="M 0 50 L 0 99 H 100 V 50" vector-effect="non-scaling-stroke" fill="None" stroke-width="2" stroke="#000000"/></svg><text id="zero" font-size="20" text-anchor="middle" x="5%" y="55%">0</text><text id="half_scale" font-size="20" text-anchor="middle" y="55%" x="42.5%" visibility="hidden">15</text><text id="scale" font-size="20" text-anchor="middle" y="55%" x="80%">1500</text><text id="unit" font-size="20" x="85%" y="99%">km</text></svg>"""  # noqa
-
         svg = (
-            bar_two
-            if style == 2
-            else bar_three
-            if style == 3
-            else bar_four
-            if style == 4
-            else bar_five
-            if style == 5
-            else bar_one
+            """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><rect id="border" style="stroke:#000;fill:#FFF;" height="40%" width="75%" x="5%" y="2%"/><rect id="first_block" style="fill:#000" height="20%" width="37.5%" x="5%" y="2%"/><rect id="second_block" style="fill:#000" height="20%" width="37.5%" x="42.5%" y="22%"/><text id="zero" text-anchor="middle" font-size="20" x="5%" y="95%">0</text><text id="half_scale" font-size="20" text-anchor="middle" x="42.5%" y="95%">15</text><text id="scale" font-size="20" text-anchor="middle" x="80%" y="95%">30</text><text id="unit" font-size="20" x="82%" y="42%">km</text></svg>"""  # noqa
+            if style == "double"
+            else """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><rect id="border" style="stroke:#000;fill:#FFF;" height="50%" width="75%" x="5%" y="48%" /><text id="zero" font-size="20" x="0%" y="95%" visibility="hidden">0</text><text id="half_scale" font-size="20" text-anchor="middle" x="42.5%" y="95%" visibility="hidden">15</text><text id="scale" font-size="20" text-anchor="middle" x="42.5%" y="92%">30</text><text id="unit" font-size="20" x="82%" y="95%">km</text></svg>"""  # noqa
+            if style == "empty"
+            else """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><svg y="50%" x="5%" width="75%" height="48%" viewBox="-0.4 0 101 101" preserveAspectRatio="none"><path d="M 0 50 L 0 99 h 50 V 50 V 99 H 100 V 50" vector-effect="non-scaling-stroke" fill="None" stroke-width="2" stroke="#000"/></svg><text id="zero" font-size="20" text-anchor="middle" x="5%" y="50%">0</text><text id="half_scale" font-size="20" text-anchor="middle" y="50%" x="42.5%">15</text><text id="scale" font-size="20" text-anchor="middle" y="50%" x="80%">1500</text><text id="unit" font-size="20" x="85%" y="98%">km</text></svg>"""  # noqa
+            if style == "comb"
+            else """<svg xmlns="http://www.w3.org/2000/svg" id="test" style="width:300;height:40px;"><rect id="border" style="stroke:#000;fill:#FFF;" height="40%" width="75%" x="5%" y="2%"/><rect id="first_block" style="fill:#000" height="40%" width="37.5%" x="5%" y="2%"/><text id="zero" text-anchor="middle" font-size="20" x="5%" y="95%">0</text><text id="half_scale" font-size="20" text-anchor="middle" x="42.5%" y="95%">15</text><text id="scale" font-size="20" text-anchor="middle" x="80%" y="95%">30</text><text id="unit" font-size="20" x="82%" y="42%">km</text></svg>"""  # noqa
         )
 
-        self.add_child(ScaleElement(svg, position=position, imperial=imperial, metric=False if imperial else True))
+        self.add_child(ScaleElement(svg, position=position, imperial=imperial), index=0 if force else None)
 
     def add_north_arrow(self, position="topright", scale=1.0):
         """
@@ -511,13 +509,13 @@ class ScaleElement(MacroElement):
 
                 var template = document.createElement('template');
                 var container = document.createElement('div');
-                container.classList.add("leaflet-control-scale", );
+                container.classList.add("leaflet-control-scale");
                 container.innerHTML = `{{ this.html }}`.trim();
                 template.innerHTML = `{{ this.html }}`.trim();
 
                 this._scale = container.firstChild;
 
-                map.on(options.updateWhenIdle ? 'moveend' : 'move', this._update, this);
+                map.on('move', this._update, this);
                 map.whenReady(this._update, this);
 
                 return container;
@@ -555,6 +553,10 @@ class ScaleElement(MacroElement):
                 scale.getElementById("half_scale").textContent = value / 2;
                 scale.getElementById("unit").textContent = unit;
 
+            },
+
+            onRemove(map) {
+                map.off('move', this._update, this);
             }
 
         });
@@ -564,11 +566,11 @@ class ScaleElement(MacroElement):
     """
     )
 
-    def __init__(self, html, position="bottomright", metric=True, imperial=False):
+    def __init__(self, html, position="bottomright", imperial=False):
         super().__init__()
         self.html = html
         self.options = folium.utilities.parse_options(
-            position=position, maxWidth=300, imperial=imperial, metric=metric, updateWhenIdle=False
+            position=position, maxWidth=300, imperial=imperial, metric=not imperial
         )
 
 
