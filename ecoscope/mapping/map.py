@@ -458,6 +458,9 @@ class EcoMap(EcoMapMixin, Map):
     def add_print_control(self):
         self.add_child(PrintControl())
 
+    def add_deckgl_test(self):
+        self.add_child(DecKGLElement())
+
     def add_datashader_gdf(
         self,
         gdf,
@@ -805,3 +808,112 @@ class PrintControl(MacroElement):
                 {% endmacro %}
         """  # noqa
     )
+
+
+class DecKGLElement(MacroElement):
+    _template = Template(
+        """
+        {% macro header(this, kwargs) %}
+            <script src='https://unpkg.com/deck.gl@8.6.0/dist.min.js'></script>
+            <script src="https://unpkg.com/deck.gl-leaflet@1.2.1/dist/deck.gl-leaflet.min.js"></script>
+        
+            <script type='module'>
+
+                const AIR_PORTS =
+                'https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_10m_airports.geojson';
+
+                const deckLayer = new DeckGlLeaflet.LeafletLayer({
+                    views: [
+                        new deck.MapView({
+                        repeat: true
+                        })
+                    ],
+                    layers: [
+                        new deck.GeoJsonLayer({
+                            id: 'airports',
+                            data: AIR_PORTS,
+                            // Styles
+                            filled: true,
+                            pointRadiusMinPixels: 2,
+                            pointRadiusScale: 2000,
+                            getPointRadius: f => 11 - f.properties.scalerank,
+                            getFillColor: [200, 0, 80, 180]
+                        })
+                    ]
+                });
+                //.addTo({{ this._parent.get_name() }})
+                
+                
+                ({{ this._parent.get_name() }}).addLayer(deckLayer);
+            </script>
+        
+
+        {% endmacro %}
+        """  # noqa
+    )
+
+    def __init__(self):
+        super().__init__()
+
+
+class GeoArrowElement(MacroElement):
+    _template = Template(
+        """
+        {% macro header(this, kwargs) %}
+
+            //use parquet / wasm instead
+
+            <script src='https://unpkg.com/apache-arrow@15.0.0/Arrow.es2015.min.js'/>
+            <!--<script srd='https://unpkg.com/@geoarrow/geoarrow-js@0.3.0/dist/geoarrow.umd.js'/>-->
+            <script src='https://unpkg.com/@geoarrow/deck.gl-layers@0.3.0-beta.14/dist/dist.umd.js'/>
+            <script src='https://unpkg.com/deck.gl@8.6.0/dist.min.js'></script>
+            <script src="https://unpkg.com/deck.gl-leaflet@1.2.1/dist/deck.gl-leaflet.min.js"></script>
+        
+            <script type='module'>
+
+                if(`{{this.path}}`.startsWith("data")){
+                    var byteString = atob(`{{this.path}}`.split(',')[1]);
+
+                    var arrayBuffer = new ArrayBuffer(byteString.length);
+                    var dataView = new DataView(arrayBuffer);
+                    for(var i = 0; i < byteString.length; i++) {
+                        dataView.setUint8(i, byteString.charCodeAt(i));
+                    }
+
+                    var blob = new Blob([arrayBuffer]);
+
+                    var {{ this.get_name() }} = protomapsL.leafletLayer({ url: tiles, paint_rules: {{ this.get_name() }}_paint_rules }).addTo({{this._parent.get_name()}});
+                }
+                else{
+                    var {{ this.get_name() }} = protomapsL.leafletLayer({ url: "{{ this.path }}", paint_rules: {{ this.get_name() }}_paint_rules }).addTo({{this._parent.get_name()}});
+                }
+        
+
+                const geoarrowLayers = window['@geoarrow/deck']['gl-layers'];
+                const deckLayer = new DeckGlLeaflet.LeafletLayer({
+                    views: [
+                        new deck.MapView({
+                        repeat: true
+                        })
+                    ],
+                    layers: [
+                        new geoarrowLayers.GeoArrowScatterplotLayer({
+                            id: 'scatter',
+                            data: hoods,
+                            pickable: true,
+                            getFillColor: [80, 0, 200],
+                            getPosition: d => d.getChild('geometry'),
+                            getRadius: 300,
+                        })
+                    ]
+                });             
+                
+                ({{ this._parent.get_name() }}).addLayer(deckLayer);
+            </script>
+        {% endmacro %}
+        """  # noqa
+    )
+
+    def __init__(self, path):
+        super().__init__()
+        self.path = path
