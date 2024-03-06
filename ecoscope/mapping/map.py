@@ -18,6 +18,9 @@ import rasterio
 import selenium.webdriver
 from branca.colormap import StepColormap
 from branca.element import MacroElement, Template
+from lonboard._geoarrow.geopandas_interop import geopandas_to_geoarrow
+from lonboard._serialization import serialize_table, infer_rows_per_chunk
+from lonboard._utils import auto_downcast
 
 import ecoscope
 from ecoscope.contrib.foliumap import Map
@@ -461,6 +464,9 @@ class EcoMap(EcoMapMixin, Map):
     def add_deckgl_test(self):
         self.add_child(DecKGLElement())
 
+    def add_geoarrow_test(self, gdf):
+        self.add_child(GeoArrowElement(gdf))
+
     def add_datashader_gdf(
         self,
         gdf,
@@ -861,34 +867,35 @@ class GeoArrowElement(MacroElement):
         """
         {% macro header(this, kwargs) %}
 
-            //use parquet / wasm instead
-
-            <script src='https://unpkg.com/apache-arrow@15.0.0/Arrow.es2015.min.js'/>
-            <!--<script srd='https://unpkg.com/@geoarrow/geoarrow-js@0.3.0/dist/geoarrow.umd.js'/>-->
-            <script src='https://unpkg.com/@geoarrow/deck.gl-layers@0.3.0-beta.14/dist/dist.umd.js'/>
+            <script src='https://unpkg.com/apache-arrow@15.0.0/Arrow.es2015.min.js'/></script>
+            <script src="https://unpkg.com/@geoarrow/deck.gl-layers@0.3.0-beta.14/dist/dist.umd.js"></script>
             <script src='https://unpkg.com/deck.gl@8.6.0/dist.min.js'></script>
             <script src="https://unpkg.com/deck.gl-leaflet@1.2.1/dist/deck.gl-leaflet.min.js"></script>
+            <script type="importmap">
+                {"imports": {"parquet-wasm": "https://unpkg.com/parquet-wasm@0.6.0-beta.2/esm/parquet_wasm.js"}}
+            </script>
         
-            <script type='module'>
+            <script type="module">
+                import initSync, {readParquet} from 'parquet-wasm';
+                async function loadData() {
+                    await initSync();
 
-                if(`{{this.path}}`.startsWith("data")){
-                    var byteString = atob(`{{this.path}}`.split(',')[1]);
-
+                    var byteString = atob(`{{this.data}}`);
+                    
                     var arrayBuffer = new ArrayBuffer(byteString.length);
                     var dataView = new DataView(arrayBuffer);
                     for(var i = 0; i < byteString.length; i++) {
                         dataView.setUint8(i, byteString.charCodeAt(i));
                     }
-
-                    var blob = new Blob([arrayBuffer]);
-
-                    var {{ this.get_name() }} = protomapsL.leafletLayer({ url: tiles, paint_rules: {{ this.get_name() }}_paint_rules }).addTo({{this._parent.get_name()}});
+                     
+                    const wasmTable = readParquet(new Uint8Array(arrayBuffer));
+                    
+                    const table = Arrow.tableFromIPC(wasmTable.intoIPCStream());
+                    
+                    return table;
                 }
-                else{
-                    var {{ this.get_name() }} = protomapsL.leafletLayer({ url: "{{ this.path }}", paint_rules: {{ this.get_name() }}_paint_rules }).addTo({{this._parent.get_name()}});
-                }
-        
 
+                var data = await loadData();
                 const geoarrowLayers = window['@geoarrow/deck']['gl-layers'];
                 const deckLayer = new DeckGlLeaflet.LeafletLayer({
                     views: [
@@ -899,7 +906,7 @@ class GeoArrowElement(MacroElement):
                     layers: [
                         new geoarrowLayers.GeoArrowScatterplotLayer({
                             id: 'scatter',
-                            data: hoods,
+                            data: data,
                             pickable: true,
                             getFillColor: [80, 0, 200],
                             getPosition: d => d.getChild('geometry'),
@@ -914,6 +921,17 @@ class GeoArrowElement(MacroElement):
         """  # noqa
     )
 
-    def __init__(self, path):
+    def __init__(self, gdf):
         super().__init__()
-        self.path = path
+
+        class perChunk:
+            def __init__(self, rows_per_chunk):
+                self._rows_per_chunk = rows_per_chunk
+
+        # table = geopandas_to_geoarrow(gdf)
+        gdf = auto_downcast(gdf.copy())
+        table = geopandas_to_geoarrow(gdf)
+
+        rows_per_chunk = infer_rows_per_chunk(table)
+
+        self.data = base64.b64encode(serialize_table(table, perChunk(rows_per_chunk))[0]).decode()
