@@ -866,15 +866,14 @@ class GeoArrowElement(MacroElement):
     _template = Template(
         """
         {% macro header(this, kwargs) %}
-
-            <script src='https://unpkg.com/apache-arrow@15.0.0/Arrow.es2015.min.js'/></script>
-            <script src="https://unpkg.com/@geoarrow/deck.gl-layers@0.3.0-beta.14/dist/dist.umd.js"></script>
-            <script src='https://unpkg.com/deck.gl@8.6.0/dist.min.js'></script>
-            <script src="https://unpkg.com/deck.gl-leaflet@1.2.1/dist/deck.gl-leaflet.min.js"></script>
             <script type="importmap">
                 {"imports": {"parquet-wasm": "https://unpkg.com/parquet-wasm@0.6.0-beta.2/esm/parquet_wasm.js"}}
             </script>
-        
+            <script src='https://unpkg.com/deck.gl@8.6.0/dist.min.js'></script>
+            <script src='https://unpkg.com/apache-arrow@15.0.0/Arrow.es2015.min.js'/></script>
+            <script src="https://unpkg.com/@geoarrow/deck.gl-layers@0.3.0-beta.14/dist/dist.umd.js"></script>
+            <script src="https://unpkg.com/deck.gl-leaflet@1.2.1/dist/deck.gl-leaflet.min.js"></script>
+            
             <script type="module">
                 import initSync, {readParquet} from 'parquet-wasm';
                 async function loadData() {
@@ -896,6 +895,7 @@ class GeoArrowElement(MacroElement):
                 }
 
                 var data = await loadData();
+                console.log(data);
                 const geoarrowLayers = window['@geoarrow/deck']['gl-layers'];
                 const deckLayer = new DeckGlLeaflet.LeafletLayer({
                     views: [
@@ -914,7 +914,8 @@ class GeoArrowElement(MacroElement):
                         })
                     ]
                 });             
-                
+                console.log(deckLayer);
+                console.log(window);
                 ({{ this._parent.get_name() }}).addLayer(deckLayer);
             </script>
         {% endmacro %}
