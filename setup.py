@@ -21,6 +21,7 @@ dependencies = [
     "folium",
     "geopandas",
     "igraph",
+    "lonboard",
     "mapclassify",
     "matplotlib",
     "networkx",

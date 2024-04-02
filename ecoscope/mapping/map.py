@@ -19,7 +19,7 @@ import selenium.webdriver
 from branca.colormap import StepColormap
 from branca.element import MacroElement, Template
 from lonboard._geoarrow.geopandas_interop import geopandas_to_geoarrow
-from lonboard._serialization import serialize_table, infer_rows_per_chunk
+from lonboard._serialization import serialize_table_to_parquet, infer_rows_per_chunk
 from lonboard._utils import auto_downcast
 
 import ecoscope
@@ -461,11 +461,8 @@ class EcoMap(EcoMapMixin, Map):
     def add_print_control(self):
         self.add_child(PrintControl())
 
-    def add_deckgl_test(self):
-        self.add_child(DecKGLElement())
-
-    def add_geoarrow_test(self, gdf):
-        self.add_child(GeoArrowElement(gdf))
+    def add_geoarrow_layer(self, gdf, geom_type):
+        self.add_child(GeoArrowElement(gdf, geom_type))
 
     def add_datashader_gdf(
         self,
@@ -816,52 +813,6 @@ class PrintControl(MacroElement):
     )
 
 
-class DecKGLElement(MacroElement):
-    _template = Template(
-        """
-        {% macro header(this, kwargs) %}
-            <script src='https://unpkg.com/deck.gl@8.6.0/dist.min.js'></script>
-            <script src="https://unpkg.com/deck.gl-leaflet@1.2.1/dist/deck.gl-leaflet.min.js"></script>
-        
-            <script type='module'>
-
-                const AIR_PORTS =
-                'https://d2ad6b4ur7yvpq.cloudfront.net/naturalearth-3.3.0/ne_10m_airports.geojson';
-
-                const deckLayer = new DeckGlLeaflet.LeafletLayer({
-                    views: [
-                        new deck.MapView({
-                        repeat: true
-                        })
-                    ],
-                    layers: [
-                        new deck.GeoJsonLayer({
-                            id: 'airports',
-                            data: AIR_PORTS,
-                            // Styles
-                            filled: true,
-                            pointRadiusMinPixels: 2,
-                            pointRadiusScale: 2000,
-                            getPointRadius: f => 11 - f.properties.scalerank,
-                            getFillColor: [200, 0, 80, 180]
-                        })
-                    ]
-                });
-                //.addTo({{ this._parent.get_name() }})
-                
-                
-                ({{ this._parent.get_name() }}).addLayer(deckLayer);
-            </script>
-        
-
-        {% endmacro %}
-        """  # noqa
-    )
-
-    def __init__(self):
-        super().__init__()
-
-
 class GeoArrowElement(MacroElement):
     _template = Template(
         """
@@ -869,13 +820,44 @@ class GeoArrowElement(MacroElement):
             <script type="importmap">
                 {"imports": {"parquet-wasm": "https://unpkg.com/parquet-wasm@0.6.0-beta.2/esm/parquet_wasm.js"}}
             </script>
-            <script src='https://unpkg.com/deck.gl@8.6.0/dist.min.js'></script>
-            <script src='https://unpkg.com/apache-arrow@15.0.0/Arrow.es2015.min.js'/></script>
-            <script src="https://unpkg.com/@geoarrow/deck.gl-layers@0.3.0-beta.14/dist/dist.umd.js"></script>
+            <script src="https://unpkg.com/deck.gl@8.9.34/dist.min.js"></script>
+            <script src="https://unpkg.com/apache-arrow@15.0.0/Arrow.es2015.min.js"/></script>
+            <script src="http://localhost/geoarrow.umd.js"/></script>
+            <script src="http://localhost/dist.umd.js"/></script>
             <script src="https://unpkg.com/deck.gl-leaflet@1.2.1/dist/deck.gl-leaflet.min.js"></script>
             
             <script type="module">
+console.log(window);
                 import initSync, {readParquet} from 'parquet-wasm';
+
+                function createLayer(data, type){
+                    const geoarrowLayers = window['@geoarrow/deck']['gl-layers'];
+                    if (type=="point"){
+                        return new geoarrowLayers.GeoArrowScatterplotLayer({
+                            data: data,
+                            getFillColor: [80, 0, 200],
+                            getRadius: 300,
+                        })
+                    }
+                    else if (type=="line"){
+                        return new geoarrowLayers.GeoArrowPathLayer({
+                            data: data,
+                            getColor: [80, 0, 200],
+                            getWidth: 30,
+                        })
+                    }
+                    else if (type=="poly"){
+                        return new geoarrowLayers.GeoArrowPolygonLayer({
+                            data: data,
+                            filled: true,
+                            stroked: true,
+                            getFillColor: [80, 0, 200],
+                            getLineColor: [255, 255, 255],
+                            getLineWidth: 50,
+                        })
+                    }
+                }
+
                 async function loadData() {
                     await initSync();
 
@@ -895,8 +877,8 @@ class GeoArrowElement(MacroElement):
                 }
 
                 var data = await loadData();
-                console.log(data);
-                const geoarrowLayers = window['@geoarrow/deck']['gl-layers'];
+console.log(data);
+
                 const deckLayer = new DeckGlLeaflet.LeafletLayer({
                     views: [
                         new deck.MapView({
@@ -904,25 +886,18 @@ class GeoArrowElement(MacroElement):
                         })
                     ],
                     layers: [
-                        new geoarrowLayers.GeoArrowScatterplotLayer({
-                            id: 'scatter',
-                            data: data,
-                            pickable: true,
-                            getFillColor: [80, 0, 200],
-                            getPosition: d => d.getChild('geometry'),
-                            getRadius: 300,
-                        })
+                        createLayer(data, "{{this.geom_type}}")
                     ]
                 });             
-                console.log(deckLayer);
-                console.log(window);
+console.log(deckLayer);
+                
                 ({{ this._parent.get_name() }}).addLayer(deckLayer);
             </script>
         {% endmacro %}
         """  # noqa
     )
 
-    def __init__(self, gdf):
+    def __init__(self, gdf, geom_type):
         super().__init__()
 
         class perChunk:
@@ -935,4 +910,8 @@ class GeoArrowElement(MacroElement):
 
         rows_per_chunk = infer_rows_per_chunk(table)
 
-        self.data = base64.b64encode(serialize_table(table, perChunk(rows_per_chunk))[0]).decode()
+        # self.data = base64.b64encode(serialize_table(table, perChunk(rows_per_chunk))[0]).decode()
+        self.data = base64.b64encode(serialize_table_to_parquet(table, max_chunksize=rows_per_chunk)[0]).decode()
+
+        # TODO  validate me
+        self.geom_type = geom_type
