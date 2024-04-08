@@ -461,8 +461,8 @@ class EcoMap(EcoMapMixin, Map):
     def add_print_control(self):
         self.add_child(PrintControl())
 
-    def add_geoarrow_layer(self, gdf, geom_type):
-        self.add_child(GeoArrowElement(gdf, geom_type))
+    def add_geoarrow_layer(self, gdf, geom_type, **kwargs):
+        self.add_child(GeoArrowElement(gdf, geom_type, **kwargs))
 
     def add_datashader_gdf(
         self,
@@ -827,45 +827,48 @@ class GeoArrowElement(MacroElement):
             <script src="https://unpkg.com/deck.gl-leaflet@1.2.1/dist/deck.gl-leaflet.min.js"></script>
             
             <script type="module">
-console.log(window);
                 import initSync, {readParquet} from 'parquet-wasm';
 
-                function createLayer(data, type){
+                function createLayer(data, type, options){
                     const geoarrowLayers = window['@geoarrow/deck']['gl-layers'];
                     if (type=="point"){
+                        let defaultProps = geoarrowLayers.GeoArrowScatterplotLayer.defaultProps;
                         return new geoarrowLayers.GeoArrowScatterplotLayer({
                             data: data,
-                            getFillColor: [80, 0, 200],
-                            getRadius: 300,
-                        })
+                            getFillColor: options["getFillColor"] ? options["getFillColor"] : defaultProps["getFillColor"],
+                            getRadius: options["getRadius"] ? options["getRadius"] : defaultProps["getRadius"],
+                            radiusUnits: options["radiusUnits"] ? options["radiusUnits"] : defaultProps["radiusUnits"],
+                        });
                     }
                     else if (type=="line"){
+                        let defaultProps = geoarrowLayers.GeoArrowPathLayer.defaultProps;
                         return new geoarrowLayers.GeoArrowPathLayer({
                             data: data,
-                            getColor: [80, 0, 200],
-                            getWidth: 30,
-                        })
+                            getColor: options["getColor"] ? options["getColor"] : defaultProps["getColor"],
+                            getWidth: options["getWidth"] ? options["getWidth"] : defaultProps["getWidth"],
+                        });
                     }
                     else if (type=="poly"){
+                        let defaultProps = geoarrowLayers.GeoArrowPolygonLayer.defaultProps;
                         return new geoarrowLayers.GeoArrowPolygonLayer({
                             data: data,
-                            filled: true,
-                            stroked: true,
-                            getFillColor: [80, 0, 200],
-                            getLineColor: [255, 255, 255],
-                            getLineWidth: 50,
-                        })
+                            filled: options["filled"] ? options["filled"] : defaultProps["filled"],
+                            stroked: options["stroked"] ? options["stroked"] : defaultProps["stroked"],
+                            getFillColor: options["getFillColor"] ? options["getFillColor"] : defaultProps["getFillColor"],
+                            getLineColor: options["getLineColor"] ? options["getLineColor"] : defaultProps["getLineColor"],
+                            getLineWidth: options["getLineWidth"] ? options["getLineWidth"] : defaultProps["getLineWidth"],
+                        });
                     }
                 }
 
                 async function loadData() {
                     await initSync();
 
-                    var byteString = atob(`{{this.data}}`);
+                    let byteString = atob(`{{this.data}}`);
                     
-                    var arrayBuffer = new ArrayBuffer(byteString.length);
-                    var dataView = new DataView(arrayBuffer);
-                    for(var i = 0; i < byteString.length; i++) {
+                    let arrayBuffer = new ArrayBuffer(byteString.length);
+                    let dataView = new DataView(arrayBuffer);
+                    for(let i = 0; i < byteString.length; i++) {
                         dataView.setUint8(i, byteString.charCodeAt(i));
                     }
                      
@@ -876,9 +879,8 @@ console.log(window);
                     return table;
                 }
 
-                var data = await loadData();
-console.log(data);
-
+                let data = await loadData();
+                let layer = createLayer(data, "{{this.geom_type}}", {{this.options}})
                 const deckLayer = new DeckGlLeaflet.LeafletLayer({
                     views: [
                         new deck.MapView({
@@ -886,10 +888,9 @@ console.log(data);
                         })
                     ],
                     layers: [
-                        createLayer(data, "{{this.geom_type}}")
+                        layer
                     ]
                 });             
-console.log(deckLayer);
                 
                 ({{ this._parent.get_name() }}).addLayer(deckLayer);
             </script>
@@ -897,7 +898,7 @@ console.log(deckLayer);
         """  # noqa
     )
 
-    def __init__(self, gdf, geom_type):
+    def __init__(self, gdf, geom_type, **kwargs):
         super().__init__()
 
         class perChunk:
@@ -915,3 +916,11 @@ console.log(deckLayer);
 
         # TODO  validate me
         self.geom_type = geom_type
+
+        # convert Python True/False to js true/false
+        for key, value in kwargs.items():
+            if value is True:
+                kwargs[key] = "true"
+            if value is False:
+                kwargs[key] = "false"
+        self.options = folium.utilities.parse_options(**kwargs)
